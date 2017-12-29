@@ -1,0 +1,10 @@
+/* This file is for your main application css. */
+
+.help-block {
+  color: #e74c3c;
+  text-transform: capitalize;
+}
+
+.form-group {
+  position: relative;
+}
