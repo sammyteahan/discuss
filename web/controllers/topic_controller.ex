@@ -7,6 +7,7 @@ defmodule Discuss.TopicController do
 
   # run plug on these atoms
   plug Discuss.Plugs.RequireAuth when action in [:new, :create, :edit, :update, :delete]
+  plug :check_topic_owner when action in [:update, :edit, :delete] # this is a function plug local to this module
 
   def index(conn, _params) do
     topics = Repo.all(Topic)
@@ -39,7 +40,11 @@ defmodule Discuss.TopicController do
   # end
 
   def create(conn, %{"topic" => topic}) do
-    changeset = Topic.changeset(%Topic{}, topic)
+    # changeset = Topic.changeset(%Topic{}, topic) # old code before association stuff
+
+    changeset = conn.assigns.user
+      |> build_assoc(:topics)
+      |> Topic.changeset(topic)
 
     case Repo.insert(changeset) do # Repo is inserted from ecto through the :controller import at the top
       {:ok, _topic} ->
@@ -79,5 +84,24 @@ defmodule Discuss.TopicController do
     conn
     |> put_flash(:info, "Topic Deleted")
     |> redirect(to: topic_path(conn, :index))
+  end
+
+  ##
+  # A function plug
+  #
+  # The resources helper in routes.ex does some work behind the scenes to add
+  # a topic's id to the conn map, which is what we'll use to check authorization
+  #
+  def check_topic_owner(conn, _params) do
+    %{params: %{"id" => topic_id}} = conn # gross code
+
+    if Repo.get(Topic, topic_id).user_id == conn.assigns.user.id do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You can't edit that")
+      |> redirect(to: topic_path(conn, :index))
+      |> halt()
+    end
   end
 end
